@@ -8,7 +8,7 @@ from app.models.llama import DEFAULT_LLAMA_BASE_URL, DEFAULT_LLAMA_MODEL, load_l
 AI_PROVIDER = os.getenv("AI_PROVIDER", "openai").strip().lower()
 OPENAI_MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", "You are a helpful assistant.")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+OPENAI_BASE_URL = (os.getenv("OPENAI_BASE_URL") or "").strip()
 OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
 _client: AsyncOpenAI | None = None
@@ -33,12 +33,11 @@ def _build_client_and_model() -> tuple[AsyncOpenAI, str]:
         if not openai_key:
             raise RuntimeError("OPENAI_API_KEY is required when AI_PROVIDER=openai.")
 
-        if OPENAI_BASE_URL:
-            return (
-                AsyncOpenAI(api_key=openai_key, base_url=OPENAI_BASE_URL),
-                OPENAI_MODEL_NAME,
-            )
-        return AsyncOpenAI(api_key=openai_key), OPENAI_MODEL_NAME
+        base_url = OPENAI_BASE_URL or OPENAI_DEFAULT_BASE_URL
+        return (
+            AsyncOpenAI(api_key=openai_key, base_url=base_url),
+            OPENAI_MODEL_NAME,
+        )
 
     raise RuntimeError("Unsupported AI_PROVIDER. Use 'openai' or 'llama'.")
 

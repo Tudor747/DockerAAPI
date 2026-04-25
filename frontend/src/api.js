@@ -1,9 +1,24 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
+async function getErrorMessage(response, fallbackMessage) {
+  try {
+    const payload = await response.json();
+    if (typeof payload?.detail === "string" && payload.detail.trim()) {
+      return payload.detail;
+    }
+    if (typeof payload?.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+  } catch {
+    // Ignore JSON parsing failures and use fallback message.
+  }
+  return fallbackMessage;
+}
+
 export async function getChat(sessionId) {
   const response = await fetch(`${API_BASE}/chat/${sessionId}`);
   if (!response.ok) {
-    throw new Error("Failed to fetch chat history.");
+    throw new Error(await getErrorMessage(response, "Failed to fetch chat history."));
   }
   return response.json();
 }
@@ -16,7 +31,7 @@ export async function postChat(sessionId, message) {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to send message.");
+    throw new Error(await getErrorMessage(response, "Failed to send message."));
   }
   return response.json();
 }
@@ -29,7 +44,7 @@ export async function streamChat(sessionId, message, onEvent) {
   });
 
   if (!response.ok || !response.body) {
-    throw new Error("Failed to start streaming response.");
+    throw new Error(await getErrorMessage(response, "Failed to start streaming response."));
   }
 
   const reader = response.body.getReader();
@@ -62,4 +77,3 @@ export async function streamChat(sessionId, message, onEvent) {
     }
   }
 }
-
