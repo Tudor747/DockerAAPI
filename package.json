@@ -1,0 +1,20 @@
+{
+  "name": "dockeraapi",
+  "version": "1.0.0",
+  "description": "descriere",
+  "homepage": "https://github.com/Tudor747/DockerAAPI#readme",
+  "bugs": {
+    "url": "https://github.com/Tudor747/DockerAAPI/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tudor747/DockerAAPI.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
