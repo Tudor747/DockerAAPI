@@ -1,40 +1,7 @@
-# Minimal Chat App (FastAPI + React + Qdrant + Docker)
+ Minimal Chat App (FastAPI + React + Qdrant + Docker)
 
-## Quick Start
+ Run:  docker compose up --build
+ Stop: docker compose down
 
-1. Create your local environment file:
+ Requirements: Docker, Python 3.14, qdrant, gemini api key;
 
-```bash
-cp .env.example .env
-# PowerShell:
-# Copy-Item .env.example .env
-```
-
-2. Set provider and credentials in `.env`:
-- `AI_PROVIDER=gemini` with `GEMINI_API_KEY`
-- `AI_PROVIDER=openai` with `OPENAI_API_KEY`
-- `AI_PROVIDER=llama` with `LLAMA_API_KEY`
-
-3. Run the stack:
-
-```bash
-docker compose up --build
-```
-
-## Services
-
-- Frontend: http://localhost:5173
-- Backend: http://localhost:8000
-- Qdrant: http://localhost:6333
-
-## Useful Endpoints
-
-- Backend health: `GET /health`
-- AI config health: `GET /ai/health`
-- Chat: `POST /chat`
-- Streaming chat: `POST /chat/stream`
-
-## Security Notes
-
-- `.env` is ignored by Git and should never be committed.
-- If a key was committed previously, rotate it in the provider dashboard.
