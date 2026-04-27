@@ -23,24 +23,15 @@ export async function getChat(sessionId) {
   return response.json();
 }
 
-export async function postChat(sessionId, message) {
-  const response = await fetch(`${API_BASE}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId, message }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await getErrorMessage(response, "Failed to send message."));
-  }
-  return response.json();
-}
-
-export async function streamChat(sessionId, message, onEvent) {
+export async function streamChat(sessionId, browserSessionId, message, onEvent) {
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId, message }),
+    body: JSON.stringify({
+      session_id: sessionId,
+      browser_session_id: browserSessionId,
+      message,
+    }),
   });
 
   if (!response.ok || !response.body) {

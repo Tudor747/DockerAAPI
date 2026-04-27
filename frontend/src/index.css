@@ -22,10 +22,19 @@ h1 {
   margin: 0 0 0.25rem;
 }
 
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 .session {
-  margin: 0 0 1rem;
+  margin: 0;
   font-size: 0.85rem;
   color: #486581;
+  overflow-wrap: anywhere;
 }
 
 .messages {
@@ -78,13 +87,6 @@ h1 {
   gap: 0.75rem;
 }
 
-.streaming-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
-
 textarea {
   resize: vertical;
   width: 100%;
@@ -105,6 +107,12 @@ button {
   cursor: pointer;
 }
 
+.secondary-button {
+  background: #d9e2ec;
+  color: #102a43;
+  flex: 0 0 auto;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.7;
@@ -114,4 +122,3 @@ button:disabled {
   color: #d64545;
   margin: 0 0 1rem;
 }
-

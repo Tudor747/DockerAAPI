@@ -1,18 +1,13 @@
 services:
-  db:
-    image: mongo:7
-    container_name: chat-db
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: chat-qdrant
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "6333:6333"
+      - "6334:6334"
     volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 10s
+      - qdrant_data:/qdrant/storage
 
   backend:
     build:
@@ -24,15 +19,17 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
       LLAMA_API_KEY: ${LLAMA_API_KEY:-}
       LLAMA_MODEL: ${LLAMA_MODEL:-meta-llama/llama-3.1-8b-instruct}
       LLAMA_BASE_URL: ${LLAMA_BASE_URL:-https://api.llmapi.ai/v1}
       SYSTEM_PROMPT: ${SYSTEM_PROMPT:-You are a helpful assistant.}
-      MONGO_URI: mongodb://db:27017
-      CHAT_DB_NAME: chatapp
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_CHAT_COLLECTION: chat_sessions
     depends_on:
-      db:
-        condition: service_healthy
+      - qdrant
     ports:
       - "8000:8000"
     healthcheck:
@@ -66,4 +63,4 @@ services:
       start_period: 10s
 
 volumes:
-  mongo_data:
+  qdrant_data:

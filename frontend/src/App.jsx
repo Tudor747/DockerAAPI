@@ -1,38 +1,87 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getChat, postChat, streamChat } from "./api";
+import { getChat, streamChat } from "./api";
 
 
-function getOrCreateSessionId() {
-  const existing = localStorage.getItem("session_id");
+const BROWSER_SESSION_STORAGE_KEY = "browser_session_id";
+const CURRENT_CHAT_STORAGE_KEY = "current_chat_id";
+const LEGACY_CHAT_STORAGE_KEY = "chat_session_id";
+const LEGACY_SESSION_STORAGE_KEY = "session_id";
+
+
+function createSessionId() {
+  if (crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+
+function getOrCreateStoredId(storageKey) {
+  const existing = localStorage.getItem(storageKey);
   if (existing) return existing;
-  const created = crypto.randomUUID();
-  localStorage.setItem("session_id", created);
+
+  const created = createSessionId();
+  localStorage.setItem(storageKey, created);
+  return created;
+}
+
+
+function getOrCreateChatId() {
+  const existing = localStorage.getItem(CURRENT_CHAT_STORAGE_KEY);
+  if (existing) return existing;
+
+  const legacyChat = localStorage.getItem(LEGACY_CHAT_STORAGE_KEY);
+  if (legacyChat) {
+    localStorage.setItem(CURRENT_CHAT_STORAGE_KEY, legacyChat);
+    return legacyChat;
+  }
+
+  const legacy = localStorage.getItem(LEGACY_SESSION_STORAGE_KEY);
+  if (legacy) {
+    localStorage.setItem(CURRENT_CHAT_STORAGE_KEY, legacy);
+    return legacy;
+  }
+
+  const created = createSessionId();
+  localStorage.setItem(CURRENT_CHAT_STORAGE_KEY, created);
   return created;
 }
 
 
 export default function App() {
-  const sessionId = useMemo(() => getOrCreateSessionId(), []);
+  const browserSessionId = useMemo(
+    () => getOrCreateStoredId(BROWSER_SESSION_STORAGE_KEY),
+    [],
+  );
+  const [sessionId, setSessionId] = useState(() => getOrCreateChatId());
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [useStreaming, setUseStreaming] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function loadHistory() {
-      try {
-        const data = await getChat(sessionId);
-        setMessages(data.messages || []);
-      } catch {
-        setError("Could not load chat history.");
-      }
+  const loadHistory = useCallback(async () => {
+    try {
+      const data = await getChat(sessionId);
+      setMessages(data.messages || []);
+    } catch {
+      setError("Could not load chat history.");
     }
-
-    loadHistory();
   }, [sessionId]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  function handleNewChat() {
+    const nextSessionId = createSessionId();
+    localStorage.setItem(CURRENT_CHAT_STORAGE_KEY, nextSessionId);
+    setSessionId(nextSessionId);
+    setMessages([]);
+    setInput("");
+    setError("");
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -43,44 +92,32 @@ export default function App() {
     setInput("");
     setIsLoading(true);
 
-    if (useStreaming) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: trimmed },
-        { role: "assistant", content: "" },
-      ]);
-
-      try {
-        await streamChat(sessionId, trimmed, (streamEvent) => {
-          if (streamEvent.type === "delta") {
-            setMessages((prev) => {
-              const next = [...prev];
-              const lastIndex = next.length - 1;
-              if (lastIndex >= 0 && next[lastIndex].role === "assistant") {
-                next[lastIndex] = {
-                  ...next[lastIndex],
-                  content: next[lastIndex].content + streamEvent.content,
-                };
-              }
-              return next;
-            });
-          }
-        });
-      } catch (streamError) {
-        setError(streamError.message || "Streaming failed.");
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: trimmed },
+      { role: "assistant", content: "" },
+    ]);
 
     try {
-      const data = await postChat(sessionId, trimmed);
-      setMessages(data.messages || []);
-    } catch (chatError) {
-      setError(chatError.message || "Request failed.");
+      await streamChat(sessionId, browserSessionId, trimmed, (streamEvent) => {
+        if (streamEvent.type !== "delta") return;
+
+        setMessages((prev) => {
+          const next = [...prev];
+          const lastIndex = next.length - 1;
+          if (lastIndex >= 0 && next[lastIndex].role === "assistant") {
+            next[lastIndex] = {
+              ...next[lastIndex],
+              content: next[lastIndex].content + streamEvent.content,
+            };
+          }
+          return next;
+        });
+      });
+
+      await loadHistory();
+    } catch (streamError) {
+      setError(streamError.message || "Streaming failed.");
     } finally {
       setIsLoading(false);
     }
@@ -88,8 +125,15 @@ export default function App() {
 
   return (
     <main className="container">
-      <h1>AI Chat</h1>
-      <p className="session">Session: {sessionId}</p>
+      <header className="header">
+        <div>
+          <h1>AI Chat</h1>
+          <p className="session">Chat: {sessionId}</p>
+        </div>
+        <button type="button" className="secondary-button" onClick={handleNewChat}>
+          New chat
+        </button>
+      </header>
 
       <section className="messages">
         {messages.length === 0 && <p className="empty">No messages yet.</p>}
@@ -104,16 +148,6 @@ export default function App() {
       {error && <p className="error">{error}</p>}
 
       <form onSubmit={handleSubmit} className="composer">
-        <label className="streaming-toggle">
-          <input
-            type="checkbox"
-            checked={useStreaming}
-            onChange={(event) => setUseStreaming(event.target.checked)}
-            disabled={isLoading}
-          />
-          Streaming
-        </label>
-
         <textarea
           value={input}
           onChange={(event) => setInput(event.target.value)}
@@ -129,4 +163,3 @@ export default function App() {
     </main>
   );
 }
-

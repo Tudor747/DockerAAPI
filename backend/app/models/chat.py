@@ -11,6 +11,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1)
     message: str = Field(min_length=1)
+    browser_session_id: str | None = Field(default=None, min_length=1)
 
 
 class ChatResponse(BaseModel):
@@ -22,4 +23,3 @@ class ChatResponse(BaseModel):
 class ChatSession(BaseModel):
     session_id: str
     messages: list[ChatMessage]
-
