@@ -5,7 +5,15 @@ from datetime import UTC, datetime
 from typing import Any
 
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointIdsList,
+    PointStruct,
+    VectorParams,
+)
 
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
@@ -139,6 +147,57 @@ async def get_chat_messages(session_id: str) -> list[dict[str, str]]:
     return _sanitize_messages(payload.get("messages"))
 
 
+async def list_chat_sessions(browser_session_id: str) -> list[dict[str, Any]]:
+    await _ensure_collection()
+
+    chat_filter = Filter(
+        must=[
+            FieldCondition(
+                key="chat.browser_session_id",
+                match=MatchValue(value=browser_session_id),
+            )
+        ]
+    )
+    sessions: list[dict[str, Any]] = []
+    offset = None
+
+    while True:
+        points, offset = await qdrant_client.scroll(
+            collection_name=CHAT_COLLECTION_NAME,
+            scroll_filter=chat_filter,
+            limit=100,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        for point in points:
+            payload = point.payload or {}
+            chat = payload.get("chat")
+            if not isinstance(chat, dict):
+                continue
+
+            session_id = chat.get("session_id")
+            if not isinstance(session_id, str) or not session_id:
+                continue
+
+            messages = _sanitize_messages(chat.get("messages"))
+            updated_at = chat.get("updated_at")
+            sessions.append(
+                {
+                    "session_id": session_id,
+                    "messages": messages,
+                    "message_count": len(messages),
+                    "updated_at": updated_at if isinstance(updated_at, str) else "",
+                }
+            )
+
+        if offset is None:
+            break
+
+    return sorted(sessions, key=lambda session: session["updated_at"], reverse=True)
+
+
 async def save_chat_messages(
     session_id: str,
     messages: list[dict[str, str]],
@@ -155,6 +214,15 @@ async def save_chat_messages(
                 payload=_chat_payload(session_id, messages, browser_session_id),
             )
         ],
+    )
+
+
+async def delete_chat_session(session_id: str) -> None:
+    await _ensure_collection()
+
+    await qdrant_client.delete(
+        collection_name=CHAT_COLLECTION_NAME,
+        points_selector=PointIdsList(points=[_session_point_id(session_id)]),
     )
 
 

@@ -23,3 +23,14 @@ class ChatResponse(BaseModel):
 class ChatSession(BaseModel):
     session_id: str
     messages: list[ChatMessage]
+
+
+class ChatSummary(BaseModel):
+    session_id: str
+    title: str
+    message_count: int
+    updated_at: str = ""
+
+
+class ChatListResponse(BaseModel):
+    sessions: list[ChatSummary]

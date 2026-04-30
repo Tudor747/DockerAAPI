@@ -23,6 +23,24 @@ export async function getChat(sessionId) {
   return response.json();
 }
 
+export async function listChats(browserSessionId) {
+  const params = new URLSearchParams({ browser_session_id: browserSessionId });
+  const response = await fetch(`${API_BASE}/chat?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Failed to fetch conversations."));
+  }
+  return response.json();
+}
+
+export async function deleteChat(sessionId) {
+  const response = await fetch(`${API_BASE}/chat/${sessionId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Failed to delete conversation."));
+  }
+}
+
 export async function streamChat(sessionId, browserSessionId, message, onEvent) {
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: "POST",

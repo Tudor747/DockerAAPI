@@ -6,12 +6,21 @@ from openai import APIConnectionError, APIStatusError, RateLimitError
 from fastapi.responses import StreamingResponse
 
 from app.db.qdrant import (
+    delete_chat_session,
     get_chat_messages,
     get_user_memory_items,
+    list_chat_sessions,
     remember_user_message,
     save_chat_messages,
 )
-from app.models.chat import ChatMessage, ChatRequest, ChatResponse, ChatSession
+from app.models.chat import (
+    ChatListResponse,
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
+    ChatSession,
+    ChatSummary,
+)
 from app.services.ai import (
     generate_assistant_reply,
     get_ai_provider_label,
@@ -33,6 +42,15 @@ def _assistant_message(content: str) -> dict[str, str]:
 
 def _to_message_models(messages: list[dict[str, str]]) -> list[ChatMessage]:
     return [ChatMessage(role=message["role"], content=message["content"]) for message in messages]
+
+
+def _chat_title(messages: list[dict[str, str]], session_id: str) -> str:
+    for message in messages:
+        if message["role"] == "user" and message["content"].strip():
+            content = " ".join(message["content"].split())
+            return content[:42] + ("..." if len(content) > 42 else "")
+
+    return f"Chat {session_id[:8]}"
 
 
 def _browser_session_id(request: ChatRequest) -> str:
@@ -82,10 +100,31 @@ def _raise_ai_http_exception(exc: Exception) -> None:
     raise HTTPException(status_code=status_code, detail=_ai_error_message(exc))
 
 
+@router.get("", response_model=ChatListResponse)
+async def list_chats(browser_session_id: str) -> ChatListResponse:
+    sessions = await list_chat_sessions(browser_session_id)
+    return ChatListResponse(
+        sessions=[
+            ChatSummary(
+                session_id=session["session_id"],
+                title=_chat_title(session["messages"], session["session_id"]),
+                message_count=session["message_count"],
+                updated_at=session["updated_at"],
+            )
+            for session in sessions
+        ]
+    )
+
+
 @router.get("/{session_id}", response_model=ChatSession)
 async def get_chat(session_id: str) -> ChatSession:
     messages = await get_chat_messages(session_id)
     return ChatSession(session_id=session_id, messages=_to_message_models(messages))
+
+
+@router.delete("/{session_id}", status_code=204)
+async def delete_chat(session_id: str) -> None:
+    await delete_chat_session(session_id)
 
 
 @router.post("", response_model=ChatResponse)
